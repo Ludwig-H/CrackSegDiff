@@ -393,13 +393,13 @@ class SS2D(nn.Module):
         dts = torch.einsum("b k r l, k d r -> b k d l", dts.view(B, K, -1, L), self.dt_projs_weight)
         # dts = dts + self.dt_projs_bias.view(1, K, -1, 1)
 
-        xs = xs.float().view(B, -1, L) # (b, k * d, l)
-        dts = dts.contiguous().float().view(B, -1, L) # (b, k * d, l)
-        Bs = Bs.float().view(B, K, -1, L) # (b, k, d_state, l)
-        Cs = Cs.float().view(B, K, -1, L) # (b, k, d_state, l)
-        Ds = self.Ds.float().view(-1) # (k * d)
-        As = -torch.exp(self.A_logs.float()).view(-1, self.d_state)  # (k * d, d_state)
-        dt_projs_bias = self.dt_projs_bias.float().view(-1) # (k * d)
+        xs = xs.float().view(B, -1, L).to(x.device) # (b, k * d, l)
+        dts = dts.contiguous().float().view(B, -1, L).to(x.device) # (b, k * d, l)
+        Bs = Bs.float().view(B, K, -1, L).to(x.device) # (b, k, d_state, l)
+        Cs = Cs.float().view(B, K, -1, L).to(x.device) # (b, k, d_state, l)
+        Ds = self.Ds.float().view(-1).to(x.device) # (k * d)
+        As = -torch.exp(self.A_logs.float()).view(-1, self.d_state).to(x.device)  # (k * d, d_state)
+        dt_projs_bias = self.dt_projs_bias.float().view(-1).to(x.device) # (k * d)
 
         out_y = self.selective_scan(
             xs, dts, 
