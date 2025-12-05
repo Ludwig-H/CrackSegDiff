@@ -75,7 +75,8 @@ def main():
     num_tqdm = range(len(datal))
     # i_sample = 0
     count = 0
-    for _ in tqdm(num_tqdm, desc='Processing'):
+    pbar = tqdm(num_tqdm, desc='Processing')
+    for _ in pbar:
         if count >= 500:
             break
         b, m, path = next(data)  # should return an image from the dataloader "data"
@@ -123,6 +124,7 @@ def main():
         img = th.cat((b, c), dim=1)     # add a noise channel$
         slice_ID = path[0].split("/")[-1].split('.')[0]
         count += 1
+        pbar.set_description(f"Processing {count}/500: {slice_ID}")
         # print(slice_ID)
         logger.log(f"sampling {count}/500 : {slice_ID}...")
         start = th.cuda.Event(enable_timing=True)

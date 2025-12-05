@@ -255,6 +255,10 @@ class TrainLoop:
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
             self.mp_trainer.backward(loss)
+            
+            if (self.step + self.resume_step) % 10 == 0:
+                print(f"Step {self.step + self.resume_step}: Loss = {loss.item():.4f}")
+
             for name, param in self.ddp_model.named_parameters():
                 if param.grad is None:
                     print(name)
