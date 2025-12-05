@@ -43,8 +43,9 @@ notebook_content = {
    "source": [
     "# 3. Install Dependencies\n",
     "!pip install -r requirement.txt\n",
-    "!pip install causal_conv1d==1.0.0\n",
-    "!pip install mamba_ssm==1.0.1\n",
+    "!pip install causal_conv1d>=1.0.0"
+    "!pip install mamba_ssm>=1.0.1"
+
     "!pip install zenodo_get"
    ]
   },
