@@ -80,7 +80,7 @@ def create_argparser():
         resume_checkpoint=None, #"/results/pretrainedmodel.pt"
         use_fp16=False,
         fp16_scale_growth=1e-3,
-        gpu_dev = "1",
+        gpu_dev = "0",
         multi_gpu = None, #"0,1,2"
         out_dir='./results/'
     )
