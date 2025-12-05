@@ -11,7 +11,10 @@ from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 try:
     from mamba_ssm.ops.selective_scan_interface import selective_scan_fn, selective_scan_ref
 except:
-    pass
+    try:
+        from .selective_scan_pure import selective_scan_fn, selective_scan_ref
+    except ImportError:
+        pass
 
 # an alternative for mamba_ssm (in which causal_conv1d is needed)
 try:
