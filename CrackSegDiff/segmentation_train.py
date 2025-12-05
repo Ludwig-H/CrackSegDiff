@@ -67,7 +67,7 @@ def main():
 def create_argparser():
     defaults = dict(
         # data_name = 'BRATS',
-        data_dir="/home/dell/jlc/data2500/Train2000",
+        data_dir="./data",
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,
@@ -82,7 +82,7 @@ def create_argparser():
         fp16_scale_growth=1e-3,
         gpu_dev = "1",
         multi_gpu = None, #"0,1,2"
-        out_dir='/home/dell/jlc/segdiff/model-3df1/'
+        out_dir='./results/'
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

@@ -33,7 +33,7 @@ from .nn import (
 from .vmunet import VMUNet
 import matplotlib.pyplot as plt
 
-writer = SummaryWriter(log_dir='/home/dell/jlc/segdiff/log', comment='feature map')
+writer = SummaryWriter(log_dir='./logs', comment='feature map')
 class AttentionPool2d(nn.Module):
     """
     Adapted from CLIP: https://github.com/openai/CLIP/blob/main/clip/model.py
@@ -1035,7 +1035,7 @@ class UNetModel_newpreview(nn.Module):
             depths=[2,2,2,2],
             depths_decoder=[2,2,2,1],
             drop_path_rate=0.2,
-            load_ckpt_path='/home/dell/jlc/segdiff/pre_trained_weights/vssm_base_0229_ckpt_epoch_237.pth',
+            load_ckpt_path='./pretrained_weights/vssm_base_0229_ckpt_epoch_237.pth',
         )
         self.AttC1 = SqueezeAndExciteFusionAdd(128)
         self.AttC2 = SqueezeAndExciteFusionAdd(128)
