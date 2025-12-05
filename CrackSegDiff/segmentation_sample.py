@@ -82,40 +82,63 @@ def main():
         b, m, path = next(data)  # should return an image from the dataloader "data"
         
         # Channel adaptation
-        # Expected input to model (before noise cat) is 6 channels (based on args.in_ch=7)
-        # b shape is [Batch, C, H, W]
+        # Ensure b starts with appropriate channels
+        if b.shape[1] > 3 and (args.modality == 'intensity' or args.modality == 'range'):
+             # If we have a fused image but want single modality, slice it?
+             # Assuming fused is [Intensity(3), Range(3)]
+             pass 
+
         if args.modality == 'intensity':
-            # Assume b is intensity (1 or 3 ch). 
-            # We want to place it in the first 3 channels (or 1?) and zero the rest?
-            # Assuming model expects [Intensity(3), Range(3)]
-            if b.shape[1] == 1:
-                b = b.repeat(1, 3, 1, 1) # to 3 channels
-            elif b.shape[1] == 3:
-                pass
+            # Force to 3 channels first
+            if b.shape[1] > 3:
+                b = b[:, :3, :, :]
+            elif b.shape[1] == 1:
+                b = b.repeat(1, 3, 1, 1)
             
             # Create zeros for range
             zeros = th.zeros_like(b)
             b = th.cat((b, zeros), dim=1) # 3+3=6
             
         elif args.modality == 'range':
-            # Assume b is range (1 or 3 ch)
-            if b.shape[1] == 1:
+            # Force to 3 channels first
+            if b.shape[1] > 3:
+                # If fused input, range is likely channels 3:6
+                if b.shape[1] >= 6:
+                     b = b[:, 3:6, :, :]
+                else:
+                     b = b[:, :3, :, :] # Fallback
+            elif b.shape[1] == 1:
                 b = b.repeat(1, 3, 1, 1)
             
             zeros = th.zeros_like(b)
             b = th.cat((zeros, b), dim=1) # 3+3=6
             
         elif args.modality == 'fused':
-            # Expect b to be 6 channels? Or we might have to fuse manually if input is not 6 ch?
-            # If the user provides 6-channel images in the '5d' folder, we are good.
-            # If input is 1 or 3 channels, we can't really "fuse" without the other modality.
-            # We assume for 'fused' mode, the input images are already 6 channels.
-            if b.shape[1] < 6:
-                # Fallback or error? 
-                # For safety, if it's 2 channels (I, R), maybe repeat?
-                # But let's assume correct data is provided for fused.
-                pass
+            # Expect b to be 6 channels.
+            if b.shape[1] == 6:
+                pass # Good
+            elif b.shape[1] == 3:
+                # We only have 3 channels but need 6.
+                # Fallback: duplicate or zero pad?
+                # Let's zero pad to match structure
+                zeros = th.zeros_like(b)
+                b = th.cat((b, zeros), dim=1)
+            elif b.shape[1] == 1:
+                 b = b.repeat(1, 3, 1, 1)
+                 zeros = th.zeros_like(b)
+                 b = th.cat((b, zeros), dim=1)
         
+        # Ensure we have exactly 6 channels now
+        if b.shape[1] != 6:
+             print(f"Warning: Image shape {b.shape} is not 6 channels. Slicing/Padding.")
+             if b.shape[1] > 6:
+                 b = b[:, :6, :, :]
+             else:
+                 # Pad with zeros
+                 diff = 6 - b.shape[1]
+                 pad = th.zeros((b.shape[0], diff, b.shape[2], b.shape[3]), device=b.device)
+                 b = th.cat((b, pad), dim=1)
+
         c = th.randn_like(b[:, :1, ...])
         # i_sample += 1
         # if i_sample < 400:
