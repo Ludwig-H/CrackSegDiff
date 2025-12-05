@@ -1,9 +1,18 @@
 import torch
 import torch.nn.functional as F
 
+# Try to use torch.compile for speedup if available (PyTorch 2.0+)
+try:
+    compile_fn = torch.compile
+except AttributeError:
+    def compile_fn(func):
+        return func
+
+@compile_fn
 def selective_scan_fn(u, delta, A, B, C, D=None, z=None, delta_bias=None, delta_softplus=False, return_last_state=False):
     """
     Pure PyTorch implementation of selective_scan_fn.
+    Optimized with @torch.compile.
     
     Args:
         u: (Batch, Dim, L)
