@@ -72,10 +72,49 @@ def main():
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
-    num_tqdm = range(len(data))
+    num_tqdm = range(len(datal))
     # i_sample = 0
+    count = 0
     for _ in tqdm(num_tqdm, desc='Processing'):
+        if count >= 500:
+            break
         b, m, path = next(data)  # should return an image from the dataloader "data"
+        
+        # Channel adaptation
+        # Expected input to model (before noise cat) is 6 channels (based on args.in_ch=7)
+        # b shape is [Batch, C, H, W]
+        if args.modality == 'intensity':
+            # Assume b is intensity (1 or 3 ch). 
+            # We want to place it in the first 3 channels (or 1?) and zero the rest?
+            # Assuming model expects [Intensity(3), Range(3)]
+            if b.shape[1] == 1:
+                b = b.repeat(1, 3, 1, 1) # to 3 channels
+            elif b.shape[1] == 3:
+                pass
+            
+            # Create zeros for range
+            zeros = th.zeros_like(b)
+            b = th.cat((b, zeros), dim=1) # 3+3=6
+            
+        elif args.modality == 'range':
+            # Assume b is range (1 or 3 ch)
+            if b.shape[1] == 1:
+                b = b.repeat(1, 3, 1, 1)
+            
+            zeros = th.zeros_like(b)
+            b = th.cat((zeros, b), dim=1) # 3+3=6
+            
+        elif args.modality == 'fused':
+            # Expect b to be 6 channels? Or we might have to fuse manually if input is not 6 ch?
+            # If the user provides 6-channel images in the '5d' folder, we are good.
+            # If input is 1 or 3 channels, we can't really "fuse" without the other modality.
+            # We assume for 'fused' mode, the input images are already 6 channels.
+            if b.shape[1] < 6:
+                # Fallback or error? 
+                # For safety, if it's 2 channels (I, R), maybe repeat?
+                # But let's assume correct data is provided for fused.
+                pass
+        
         c = th.randn_like(b[:, :1, ...])
         # i_sample += 1
         # if i_sample < 400:
@@ -83,8 +122,9 @@ def main():
 
         img = th.cat((b, c), dim=1)     # add a noise channel$
         slice_ID = path[0].split("/")[-1].split('.')[0]
-        print(slice_ID)
-        logger.log("sampling...")
+        count += 1
+        # print(slice_ID)
+        logger.log(f"sampling {count}/500 : {slice_ID}...")
         start = th.cuda.Event(enable_timing=True)
         end = th.cuda.Event(enable_timing=True)
         enslist = []
@@ -120,17 +160,17 @@ def main():
         out_img.save(os.path.join(args.out_dir, str(slice_ID)+'_output_ens'+".png"))
 def create_argparser():
     defaults = dict(
-        # data_name='BRATS',
-        data_dir="/home/dell/jlc/data2500/Test",
+        data_dir="./data/Test",
         clip_denoised=True,
         num_samples=1,
         batch_size=1,
         use_ddim=False,
-        model_path="/home/dell/jlc/segdiff/model-5df/savedmodel100000.pt",         #path to pretrain model
-        num_ensemble=1,      #number of samples in the ensemble
-        gpu_dev="1",
-        out_dir='/home/dell/jlc/segdiff/result/',
-        multi_gpu=None, #"0,1,2"
+        model_path="./pretrained_weights/savedmodel100000.pt",
+        num_ensemble=1,
+        gpu_dev="0",
+        out_dir='./results/',
+        multi_gpu=None,
+        modality='fused', # intensity, range, fused
         debug=False
     )
     defaults.update(model_and_diffusion_defaults())

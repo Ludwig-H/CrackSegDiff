@@ -14,7 +14,14 @@ class CustomDataset(Dataset):
 
         print("loading data from the directory :",data_path)
         path = data_path
-        images = sorted(glob(os.path.join(path, "5d/*.png")))
+        # Support multiple extensions
+        extensions = ["*.png", "*.jpg", "*.tif", "*.tiff"]
+        images = []
+        for ext in extensions:
+            images.extend(sorted(glob(os.path.join(path, "5d", ext))))
+        # Sort again to ensure order
+        images = sorted(images)
+        
         masks = sorted(glob(os.path.join(path, "mask/*.bmp")))
 
         self.name_list = images
