@@ -32,7 +32,8 @@ notebook_content = {
     "import os\n",
     "if not os.path.exists('CrackSegDiff'):\n",
     "    !git clone https://github.com/Ludwig-H/CrackSegDiff.git\n",
-    "%cd CrackSegDiff"
+    "%cd CrackSegDiff\n",
+    "!git pull"
    ]
   },
   {
