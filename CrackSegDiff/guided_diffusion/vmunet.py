@@ -9,6 +9,8 @@ class VMUNet(nn.Module):
                  num_classes=2,
                  depths=[2, 2, 9, 2], 
                  depths_decoder=[2, 9, 2, 2],
+                 dims=[64, 128, 256, 512],
+                 dims_decoder=[512, 256, 128, 64],
                  drop_path_rate=0.2,
                  load_ckpt_path=None,
                 ):
@@ -21,11 +23,10 @@ class VMUNet(nn.Module):
                            num_classes=num_classes,
                            depths=depths,
                            depths_decoder=depths_decoder,
+                           dims=dims,
+                           dims_decoder=dims_decoder,
                            drop_path_rate=drop_path_rate,
                         )
-        
-        if self.load_ckpt_path is not None:
-            self.load_from()
     
     def forward(self, x):
         if x.size()[1] == 1:

@@ -1034,6 +1034,8 @@ class UNetModel_newpreview(nn.Module):
             input_channels=self.in_channels - 1, # Adapted to in_channels (e.g. 10-1=9)
             depths=[2,2,2,2],
             depths_decoder=[2,2,2,1],
+            dims=[96, 192, 384, 768],
+            dims_decoder=[768, 384, 192, 96],
             drop_path_rate=0.2,
             load_ckpt_path='./pretrained_weights/vssm_base_0229_ckpt_epoch_237.pth',
         )
