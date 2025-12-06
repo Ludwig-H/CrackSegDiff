@@ -153,7 +153,7 @@ notebook_content = {
         "out_dir = os.path.abspath('results/train_output')\n",
         "os.makedirs(out_dir, exist_ok=True)\n",
         "\n",
-        "!python CrackSegDiff/segmentation_train.py --data_dir {data_dir} --out_dir {out_dir} --image_size 256 --num_channels 128 --class_cond False --num_res_blocks 2 --num_heads 1 --learn_sigma True --use_scale_shift_norm False --attention_resolutions 16 --diffusion_steps 1000 --noise_schedule linear --rescale_learned_sigmas False --rescale_timesteps False --lr 5e-5 --batch_size 8 --save_interval 5000 --lr_anneal_steps 5000"
+        "!python CrackSegDiff/segmentation_train.py --data_dir {data_dir} --out_dir {out_dir} --image_size 256 --num_channels 96 --class_cond False --num_res_blocks 2 --num_heads 1 --learn_sigma True --use_scale_shift_norm False --attention_resolutions 16 --diffusion_steps 1000 --noise_schedule linear --rescale_learned_sigmas False --rescale_timesteps False --lr 5e-5 --batch_size 8 --save_interval 5000 --lr_anneal_steps 5000"
       ]
     },
     {
@@ -176,7 +176,7 @@ notebook_content = {
         "    out_path = f\"results/test_output_{modality}\"\n",
         "    os.makedirs(out_path, exist_ok=True)\n",
         "    print(f\"Testing {modality}...\")\n",
-        "    !python CrackSegDiff/segmentation_sample.py --data_dir {test_dir} --out_dir {out_path} --model_path {model_path} --modality {modality} --image_size 256 --num_channels 128 --class_cond False --num_res_blocks 2 --num_heads 1 --learn_sigma True --use_scale_shift_norm False --attention_resolutions 16 --diffusion_steps 100 --noise_schedule linear --rescale_learned_sigmas False --rescale_timesteps False --num_ensemble 1\n",
+        "    !python CrackSegDiff/segmentation_sample.py --data_dir {test_dir} --out_dir {out_path} --model_path {model_path} --modality {modality} --image_size 256 --num_channels 96 --class_cond False --num_res_blocks 2 --num_heads 1 --learn_sigma True --use_scale_shift_norm False --attention_resolutions 16 --diffusion_steps 100 --noise_schedule linear --rescale_learned_sigmas False --rescale_timesteps False --num_ensemble 1\n",
         "    print(f\"Done {modality}\")"
       ]
     },
