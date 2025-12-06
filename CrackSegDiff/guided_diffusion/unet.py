@@ -1059,8 +1059,16 @@ class UNetModel_newpreview(nn.Module):
         self.AttC2 = SqueezeAndExciteFusionAdd(model_channels * cm[1])
         self.AttC3 = SqueezeAndExciteFusionAdd(model_channels * cm[2])
         self.AttC4 = SqueezeAndExciteFusionAdd(model_channels * cm[4])
-        self.att1 = CSA(channel_l=512, channel_g=512, init_channel=128, mode=8)
-        self.att2 = CSA(channel_l=256, channel_g=512, init_channel=128, mode=4)
+        
+        # Dynamic CSA initialization
+        # att1 at ind=2 (L5, mult=cm[5]). input hs[6] (L2, mult=cm[2])
+        # att2 at ind=5 (L4, mult=cm[4]). input hs[6] (L2, mult=cm[2])
+        
+        # Ensure cm has enough elements (6 for 256px default)
+        if len(cm) < 6: cm = list(cm) + [cm[-1]]*(6-len(cm))
+
+        self.att1 = CSA(channel_l=model_channels * cm[5], channel_g=model_channels * cm[5], init_channel=model_channels * cm[2], mode=8)
+        self.att2 = CSA(channel_l=model_channels * cm[4], channel_g=model_channels * cm[4], init_channel=model_channels * cm[2], mode=4)
         # self.ffp1 = FFParser(dim=512, h=8, w=5)
         # self.ffp2 = FFParser(dim=512, h=16, w=9)
         # self.ffp3 = FFParser(dim=256, h=16, w=9)
