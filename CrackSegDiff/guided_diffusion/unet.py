@@ -1043,15 +1043,22 @@ class UNetModel_newpreview(nn.Module):
         
         # Projections for skip connections to match model_channels
         vssm_dims = [96, 192, 384, 768]
-        self.skip_proj1 = nn.Conv2d(vssm_dims[0], model_channels * channel_mult[0], 1) if vssm_dims[0] != model_channels * channel_mult[0] else nn.Identity()
-        self.skip_proj2 = nn.Conv2d(vssm_dims[1], model_channels * channel_mult[1], 1) if vssm_dims[1] != model_channels * channel_mult[1] else nn.Identity()
-        self.skip_proj3 = nn.Conv2d(vssm_dims[2], model_channels * channel_mult[2], 1) if vssm_dims[2] != model_channels * channel_mult[2] else nn.Identity()
-        self.skip_proj4 = nn.Conv2d(vssm_dims[3], model_channels * channel_mult[3], 1) if vssm_dims[3] != model_channels * channel_mult[3] else nn.Identity()
+        # Mapping VSSM skips to UNet levels (assuming channel_mult=(1, 1, 2, 2, 4, 4) for 256)
+        # AttC1 at L0 (mult[0]), AttC2 at L1 (mult[1]), AttC3 at L2 (mult[2]), AttC4 at L4 (mult[4])
+        
+        # Safety check for channel_mult length
+        cm = channel_mult
+        if len(cm) < 5: cm = list(cm) + [cm[-1]]*(5-len(cm)) # Pad if needed
 
-        self.AttC1 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[0])
-        self.AttC2 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[1])
-        self.AttC3 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[2])
-        self.AttC4 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[3])
+        self.skip_proj1 = nn.Conv2d(vssm_dims[0], model_channels * cm[0], 1) if vssm_dims[0] != model_channels * cm[0] else nn.Identity()
+        self.skip_proj2 = nn.Conv2d(vssm_dims[1], model_channels * cm[1], 1) if vssm_dims[1] != model_channels * cm[1] else nn.Identity()
+        self.skip_proj3 = nn.Conv2d(vssm_dims[2], model_channels * cm[2], 1) if vssm_dims[2] != model_channels * cm[2] else nn.Identity()
+        self.skip_proj4 = nn.Conv2d(vssm_dims[3], model_channels * cm[4], 1) if vssm_dims[3] != model_channels * cm[4] else nn.Identity()
+
+        self.AttC1 = SqueezeAndExciteFusionAdd(model_channels * cm[0])
+        self.AttC2 = SqueezeAndExciteFusionAdd(model_channels * cm[1])
+        self.AttC3 = SqueezeAndExciteFusionAdd(model_channels * cm[2])
+        self.AttC4 = SqueezeAndExciteFusionAdd(model_channels * cm[4])
         self.att1 = CSA(channel_l=512, channel_g=512, init_channel=128, mode=8)
         self.att2 = CSA(channel_l=256, channel_g=512, init_channel=128, mode=4)
         # self.ffp1 = FFParser(dim=512, h=8, w=5)
