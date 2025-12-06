@@ -145,7 +145,7 @@ def create_model(
     class_cond=False,
     use_checkpoint=False,
     attention_resolutions="16",
-    in_ch=10, #4
+    in_ch=10,
     num_heads=1,
     num_head_channels=-1,
     num_heads_upsample=-1,
