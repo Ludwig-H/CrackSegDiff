@@ -25,7 +25,7 @@ def main():
     transform_train = transforms.Compose(tran_list)
     print("Your current directory : ", args.data_dir)
     ds = CustomDataset(args, args.data_dir, transform_train)
-    args.in_ch = 7 #4
+    args.in_ch = 10 # 9 channels (3 modalities * 3) + 1 noise
     datal= th.utils.data.DataLoader(
         ds,
         batch_size=args.batch_size,

@@ -39,7 +39,7 @@ def main():
     transform_test = transforms.Compose(tran_list)
     print("Your current directory : ", args.data_dir)
     ds = CustomDataset(args, args.data_dir, transform_test, mode='Test')
-    args.in_ch = 7
+    args.in_ch = 10
     datal = th.utils.data.DataLoader(
         ds,
         batch_size=args.batch_size,
@@ -81,63 +81,99 @@ def main():
             break
         b, m, path = next(data)  # should return an image from the dataloader "data"
         
-        # Channel adaptation
-        # Ensure b starts with appropriate channels
-        if b.shape[1] > 3 and (args.modality == 'intensity' or args.modality == 'range'):
-             # If we have a fused image but want single modality, slice it?
-             # Assuming fused is [Intensity(3), Range(3)]
-             pass 
-
+        # Channel adaptation logic
+        # We need to construct a 9-channel data tensor from b
+        # b might be 3 channels (single modality file) or 6/9 channels (merged file)
+        
+        b_final = None
+        
         if args.modality == 'intensity':
-            # Force to 3 channels first
-            if b.shape[1] > 3:
-                b = b[:, :3, :, :]
+            # Intensity is channels 0-3
+            if b.shape[1] >= 3:
+                part = b[:, :3, :, :]
             elif b.shape[1] == 1:
-                b = b.repeat(1, 3, 1, 1)
+                part = b.repeat(1, 3, 1, 1)
+            else:
+                part = th.zeros((b.shape[0], 3, b.shape[2], b.shape[3]), device=b.device)
             
-            # Create zeros for range
-            zeros = th.zeros_like(b)
-            b = th.cat((b, zeros), dim=1) # 3+3=6
+            # Pad with 6 zeros (for range and filtered)
+            zeros = th.zeros((part.shape[0], 6, part.shape[2], part.shape[3]), device=part.device)
+            b_final = th.cat((part, zeros), dim=1)
             
         elif args.modality == 'range':
-            # Force to 3 channels first
-            if b.shape[1] > 3:
-                # If fused input, range is likely channels 3:6
-                if b.shape[1] >= 6:
-                     b = b[:, 3:6, :, :]
-                else:
-                     b = b[:, :3, :, :] # Fallback
-            elif b.shape[1] == 1:
-                b = b.repeat(1, 3, 1, 1)
+            # Range is channels 3-6
+            # If input is large (>=6), assume range is at 3:6
+            # If input is small (3), assume it IS the range image (so 0:3)
+            if b.shape[1] >= 6:
+                part = b[:, 3:6, :, :]
+            else:
+                part = b[:, :3, :, :]
+                
+            if part.shape[1] == 1: part = part.repeat(1, 3, 1, 1)
             
-            zeros = th.zeros_like(b)
-            b = th.cat((zeros, b), dim=1) # 3+3=6
+            zeros_pre = th.zeros((part.shape[0], 3, part.shape[2], part.shape[3]), device=part.device)
+            zeros_post = th.zeros((part.shape[0], 3, part.shape[2], part.shape[3]), device=part.device)
+            b_final = th.cat((zeros_pre, part, zeros_post), dim=1)
+            
+        elif args.modality == 'filtered':
+            # Filtered is channels 6-9
+            # If input is large (>=9), assume filtered is at 6:9
+            # If input is small (3), assume it IS the filtered image
+            if b.shape[1] >= 9:
+                part = b[:, 6:9, :, :]
+            else:
+                part = b[:, :3, :, :]
+            
+            if part.shape[1] == 1: part = part.repeat(1, 3, 1, 1)
+            
+            zeros = th.zeros((part.shape[0], 6, part.shape[2], part.shape[3]), device=part.device)
+            b_final = th.cat((zeros, part), dim=1)
             
         elif args.modality == 'fused':
-            # Expect b to be 6 channels.
-            if b.shape[1] == 6:
-                pass # Good
-            elif b.shape[1] == 3:
-                # We only have 3 channels but need 6.
-                # Fallback: duplicate or zero pad?
-                # Let's zero pad to match structure
-                zeros = th.zeros_like(b)
-                b = th.cat((b, zeros), dim=1)
+            # Fused usually means Intensity + Range (channels 0-6)
+            # We keep it as is, padding the rest (filtered) with zeros
+            
+            part_int = None
+            part_rng = None
+            
+            # Extract Intensity
+            if b.shape[1] >= 3:
+                part_int = b[:, :3, :, :]
             elif b.shape[1] == 1:
-                 b = b.repeat(1, 3, 1, 1)
-                 zeros = th.zeros_like(b)
-                 b = th.cat((b, zeros), dim=1)
+                part_int = b.repeat(1,3,1,1)
+            
+            # Extract Range
+            if b.shape[1] >= 6:
+                part_rng = b[:, 3:6, :, :]
+            elif b.shape[1] == 3:
+                # Ambiguous if we only have 3 channels. 
+                # If we are in 'fused' mode but only have 3 channels, 
+                # maybe we lack range? Or maybe the 3 channels ARE fused?
+                # Let's assume we lack range and pad with zeros, or fail?
+                # To be safe, let's pad with zeros if missing.
+                part_rng = th.zeros_like(part_int)
+            else:
+                part_rng = th.zeros_like(part_int) # fallback
+                
+            # Pad Filtered (3 zeros)
+            zeros_filt = th.zeros((part_int.shape[0], 3, part_int.shape[2], part_int.shape[3]), device=part_int.device)
+            
+            b_final = th.cat((part_int, part_rng, zeros_filt), dim=1)
         
-        # Ensure we have exactly 6 channels now
-        if b.shape[1] != 6:
-             print(f"Warning: Image shape {b.shape} is not 6 channels. Slicing/Padding.")
-             if b.shape[1] > 6:
-                 b = b[:, :6, :, :]
+        else:
+             # Default fallback if unknown modality
+             print(f"Unknown modality {args.modality}, using raw input padded/sliced to 9.")
+             if b.shape[1] >= 9:
+                 b_final = b[:, :9, :, :]
              else:
-                 # Pad with zeros
-                 diff = 6 - b.shape[1]
-                 pad = th.zeros((b.shape[0], diff, b.shape[2], b.shape[3]), device=b.device)
-                 b = th.cat((b, pad), dim=1)
+                 pad_size = 9 - b.shape[1]
+                 if pad_size > 0:
+                     zeros = th.zeros((b.shape[0], pad_size, b.shape[2], b.shape[3]), device=b.device)
+                     b_final = th.cat((b, zeros), dim=1)
+                 else:
+                     b_final = b[:, :9, :, :]
+
+        b = b_final
 
         c = th.randn_like(b[:, :1, ...])
         # i_sample += 1

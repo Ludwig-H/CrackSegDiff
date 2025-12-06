@@ -49,7 +49,7 @@ def model_and_diffusion_defaults():
         num_channels=128,
         num_res_blocks=2,
         num_heads=4,
-        in_ch = 5,
+        in_ch = 10,
         num_heads_upsample=-1,
         num_head_channels=-1,
         attention_resolutions="16,8",
@@ -145,7 +145,7 @@ def create_model(
     class_cond=False,
     use_checkpoint=False,
     attention_resolutions="16",
-    in_ch=4, #4
+    in_ch=10, #4
     num_heads=1,
     num_head_channels=-1,
     num_heads_upsample=-1,

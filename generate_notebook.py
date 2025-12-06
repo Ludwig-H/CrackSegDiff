@@ -210,7 +210,7 @@ notebook_content = {
     "\n",
     "test_data_dir = os.path.abspath('./data/test_formatted')\n",
     "\n",
-    "for modality in ['intensity', 'range', 'fused']:\n",
+    "for modality in ['intensity', 'range', 'fused', 'filtered']:\n",
     "    out_path = f\"./results/test_output_{modality}\"\n",
     "    os.makedirs(out_path, exist_ok=True)\n",
     "    print(f\"Testing {modality}...\")\n",
