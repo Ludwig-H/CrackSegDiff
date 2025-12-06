@@ -1040,6 +1040,14 @@ class UNetModel_newpreview(nn.Module):
             drop_path_rate=0.2,
             load_ckpt_path='./pretrained_weights/vssm_base_0229_ckpt_epoch_237.pth',
         )
+        
+        # Projections for skip connections to match model_channels
+        vssm_dims = [96, 192, 384, 768]
+        self.skip_proj1 = nn.Conv2d(vssm_dims[0], model_channels * channel_mult[0], 1) if vssm_dims[0] != model_channels * channel_mult[0] else nn.Identity()
+        self.skip_proj2 = nn.Conv2d(vssm_dims[1], model_channels * channel_mult[1], 1) if vssm_dims[1] != model_channels * channel_mult[1] else nn.Identity()
+        self.skip_proj3 = nn.Conv2d(vssm_dims[2], model_channels * channel_mult[2], 1) if vssm_dims[2] != model_channels * channel_mult[2] else nn.Identity()
+        self.skip_proj4 = nn.Conv2d(vssm_dims[3], model_channels * channel_mult[3], 1) if vssm_dims[3] != model_channels * channel_mult[3] else nn.Identity()
+
         self.AttC1 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[0])
         self.AttC2 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[1])
         self.AttC3 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[2])
@@ -1120,34 +1128,20 @@ class UNetModel_newpreview(nn.Module):
                 emb = emb.squeeze()
             if ind == 0:
                 h = module(h, emb)
-                # h = h + th.cat(
-                #     (F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear'),
-                #      F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear')), 1)
-                h = self.AttC1(h, F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear'))
-                # h_ = F.interpolate(h, size=(64, 64), mode='nearest').transpose(0, 1)
-                # grid1 = vutils.make_grid(h_, normalize=True)
-                # writer.add_image(f'{ind}_feature_maps', grid1, global_step=0)
+                s0 = self.skip_proj1(skip_list[0].permute(0, 3, 1, 2))
+                h = self.AttC1(h, F.interpolate(s0, size=(256, 256), mode='bilinear'))
             elif ind == 3:
                 h = module(h, emb)
-                # h = h + F.interpolate(skip_list[1].permute(0, 3, 1, 2), size=(128, 128), mode='bilinear')
-                h = self.AttC2(h, F.interpolate(skip_list[1].permute(0, 3, 1, 2), size=(128, 128), mode='bilinear'))
-                # h_ = F.interpolate(h, size=(32, 32), mode='nearest').transpose(0, 1)[:,:1,:,:]
-                # grid2 = vutils.make_grid(h_, normalize=True)
-                # writer.add_image(f'{ind}_feature_maps', grid2, global_step=0)
+                s1 = self.skip_proj2(skip_list[1].permute(0, 3, 1, 2))
+                h = self.AttC2(h, F.interpolate(s1, size=(128, 128), mode='bilinear'))
             elif ind == 7:
                 h = module(h, emb)
-                # h = h + F.interpolate(skip_list[2].permute(0, 3, 1, 2), size=(64, 64), mode='bilinear')
-                h = self.AttC3(h, F.interpolate(skip_list[2].permute(0, 3, 1, 2), size=(64, 64), mode='bilinear'))
-                # h_ = F.interpolate(h, size=(32, 32), mode='nearest').transpose(0, 1)
-                # grid3 = vutils.make_grid(h_, normalize=True)
-                # writer.add_image(f'{ind}_feature_maps', grid3, global_step=0)
+                s2 = self.skip_proj3(skip_list[2].permute(0, 3, 1, 2))
+                h = self.AttC3(h, F.interpolate(s2, size=(64, 64), mode='bilinear'))
             elif ind == 13:
                 h = module(h, emb)
-                # h = h + F.interpolate(skip_list[3].permute(0, 3, 1, 2), size=(16, 16), mode='bilinear')
-                h = self.AttC4(h, F.interpolate(skip_list[3].permute(0, 3, 1, 2), size=(16, 16), mode='bilinear'))
-                # h_ = F.interpolate(h, size=(16, 16), mode='nearest').transpose(0, 1)
-                # grid4 = vutils.make_grid(h_, normalize=True)
-                # writer.add_image(f'{ind}_feature_maps', grid4, global_step=0)
+                s3 = self.skip_proj4(skip_list[3].permute(0, 3, 1, 2))
+                h = self.AttC4(h, F.interpolate(s3, size=(16, 16), mode='bilinear'))
 
             else:
                 h = module(h, emb)
