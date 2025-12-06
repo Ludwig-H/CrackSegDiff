@@ -23,6 +23,9 @@ class VMUNet(nn.Module):
                            depths_decoder=depths_decoder,
                            drop_path_rate=drop_path_rate,
                         )
+        
+        if self.load_ckpt_path is not None:
+            self.load_from()
     
     def forward(self, x):
         if x.size()[1] == 1:
