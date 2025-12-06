@@ -922,7 +922,7 @@ class UNetModel_newpreview(nn.Module):
 
 
             if level != len(channel_mult) - 1:
-                out_ch = ch
+                out_ch = model_channels * channel_mult[level + 1]
                 self.input_blocks.append(
                     TimestepEmbedSequential(
                         ResBlock(
@@ -946,6 +946,7 @@ class UNetModel_newpreview(nn.Module):
                 input_block_chans.append(ch)
                 ds *= 2
                 self._feature_size += ch
+
 
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
