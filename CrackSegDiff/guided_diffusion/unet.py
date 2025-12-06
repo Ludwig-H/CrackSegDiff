@@ -1031,7 +1031,7 @@ class UNetModel_newpreview(nn.Module):
             self.hwm = Generic_UNet(self.in_channels - 1, features, 1, 5, anchor_out=True, upscale_logits=True)
         self.vmamba = VMUNet(
             num_classes=1,
-            input_channels=6, #3
+            input_channels=self.in_channels - 1, # Adapted to in_channels (e.g. 10-1=9)
             depths=[2,2,2,2],
             depths_decoder=[2,2,2,1],
             drop_path_rate=0.2,
