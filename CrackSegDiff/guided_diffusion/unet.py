@@ -1039,10 +1039,10 @@ class UNetModel_newpreview(nn.Module):
             drop_path_rate=0.2,
             load_ckpt_path='./pretrained_weights/vssm_base_0229_ckpt_epoch_237.pth',
         )
-        self.AttC1 = SqueezeAndExciteFusionAdd(128)
-        self.AttC2 = SqueezeAndExciteFusionAdd(128)
-        self.AttC3 = SqueezeAndExciteFusionAdd(256)
-        self.AttC4 = SqueezeAndExciteFusionAdd(512)
+        self.AttC1 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[0])
+        self.AttC2 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[1])
+        self.AttC3 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[2])
+        self.AttC4 = SqueezeAndExciteFusionAdd(model_channels * channel_mult[3])
         self.att1 = CSA(channel_l=512, channel_g=512, init_channel=128, mode=8)
         self.att2 = CSA(channel_l=256, channel_g=512, init_channel=128, mode=4)
         # self.ffp1 = FFParser(dim=512, h=8, w=5)
@@ -1122,9 +1122,7 @@ class UNetModel_newpreview(nn.Module):
                 # h = h + th.cat(
                 #     (F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear'),
                 #      F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear')), 1)
-                h = self.AttC1(h, th.cat(
-                    (F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear'),
-                     F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear')), 1))
+                h = self.AttC1(h, F.interpolate(skip_list[0].permute(0, 3, 1, 2), size=(256, 256), mode='bilinear'))
                 # h_ = F.interpolate(h, size=(64, 64), mode='nearest').transpose(0, 1)
                 # grid1 = vutils.make_grid(h_, normalize=True)
                 # writer.add_image(f'{ind}_feature_maps', grid1, global_step=0)
