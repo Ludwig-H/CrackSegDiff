@@ -1031,7 +1031,7 @@ class UNetModel_newpreview(nn.Module):
             self.hwm = Generic_UNet(self.in_channels - 1, features, 1, 5, anchor_out=True, upscale_logits=True)
         self.vmamba = VMUNet(
             num_classes=1,
-            input_channels=self.in_channels - 1, # Adapted to in_channels (e.g. 10-1=9)
+            input_channels=6, # Fixed to 6 to match pretrained VSSM expectation
             depths=[2,2,2,2],
             depths_decoder=[2,2,2,1],
             dims=[96, 192, 384, 768],
@@ -1112,7 +1112,7 @@ class UNetModel_newpreview(nn.Module):
         h = x.type(self.dtype)
         c = h[:, :-1, ...]
         # anch, _= self.highway_forward(c)
-        cal, skip_list = self.vmamba_forward(c)
+        cal, skip_list = self.vmamba_forward(c[:, :6, ...])
         # h = h[:,3:,...]
         for ind, module in enumerate(self.input_blocks):
             if len(emb.size()) > 2:
