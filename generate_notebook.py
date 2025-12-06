@@ -172,7 +172,7 @@ notebook_content = {
         "test_dir = os.path.abspath('data/Test')\n",
         "print(f\"Using model: {model_path}\")\n",
         "\n",
-        "for modality in ['intensity', 'range', 'fused', 'filtered']:\n",
+        "for modality in ['intensity', 'range', 'fused', 'filtered', 'all']:\n",
         "    out_path = f\"results/test_output_{modality}\"\n",
         "    os.makedirs(out_path, exist_ok=True)\n",
         "    print(f\"Testing {modality}...\")\n",

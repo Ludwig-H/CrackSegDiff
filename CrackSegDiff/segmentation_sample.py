@@ -159,6 +159,20 @@ def main():
             zeros_filt = th.zeros((part_int.shape[0], 3, part_int.shape[2], part_int.shape[3]), device=part_int.device)
             
             b_final = th.cat((part_int, part_rng, zeros_filt), dim=1)
+            
+        elif args.modality == 'all':
+            # Expecting 9 channels for full multi-modal inference
+            if b.shape[1] >= 9:
+                b_final = b[:, :9, :, :]
+            else:
+                # Pad whatever we have to 9 channels
+                print(f"Warning: 'all' modality expects 9 channels, but got {b.shape[1]}. Padding with zeros.")
+                pad_size = 9 - b.shape[1]
+                if pad_size > 0:
+                    zeros = th.zeros((b.shape[0], pad_size, b.shape[2], b.shape[3]), device=b.device)
+                    b_final = th.cat((b, zeros), dim=1)
+                else:
+                    b_final = b
         
         else:
              # Default fallback if unknown modality
