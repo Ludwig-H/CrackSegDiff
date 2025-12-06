@@ -51,15 +51,17 @@ class CustomDataset(Dataset):
             torch.set_rng_state(state)
             mask = self.transform(mask)
 
-        # Ensure img has 9 channels
-        C, H, W = img.shape
-        target_C = 9
-        if C < target_C:
-            pad_C = target_C - C
-            zeros = torch.zeros((pad_C, H, W), dtype=img.dtype, device=img.device)
-            img = torch.cat((img, zeros), dim=0)
-        elif C > target_C:
-            img = img[:target_C, :, :]
+        # Ensure img has 9 channels ONLY for Training
+        # In Test/Inference, we want raw channels to detect modality structure
+        if self.mode == 'Training':
+            C, H, W = img.shape
+            target_C = 9
+            if C < target_C:
+                pad_C = target_C - C
+                zeros = torch.zeros((pad_C, H, W), dtype=img.dtype, device=img.device)
+                img = torch.cat((img, zeros), dim=0)
+            elif C > target_C:
+                img = img[:target_C, :, :]
 
         if self.mode == 'Training':
             return (img, mask, name)
