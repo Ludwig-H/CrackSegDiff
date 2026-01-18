@@ -41,7 +41,12 @@ class CustomDataset(Dataset):
         
         mask_name = self.label_list[index]
         msk_path = os.path.join(mask_name)
-        img = tiff.imread(img_path)
+        
+        if img_path.lower().endswith(('.tif', '.tiff')):
+            img = tiff.imread(img_path)
+        else:
+            img = np.array(Image.open(img_path))
+            
         # img = Image.open(img_path)
         # img = Image.open(img_path).convert('RGB')
         mask = Image.open(msk_path).convert('L')
