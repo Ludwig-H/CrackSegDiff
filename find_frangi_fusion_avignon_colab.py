@@ -274,7 +274,7 @@ else:
 # --- Single Example Analysis (Seed=1) ---
 import hdbscan
 
-seed = 133
+seed = 1
 
 print(f"Analyzing image index {seed}...")
 struct = auto_discover_find_structure("data_find")
@@ -734,7 +734,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Bruit reproductible même en parallèle
-NOISE_BASE_SEED = 133
+NOISE_BASE_SEED = 1
 
 def _normalize01(x: np.ndarray):
     x = np.asarray(x).astype(np.float32)
@@ -842,7 +842,10 @@ def frangi_predict_mask_from_arrays(arrays: dict,
                                     weights: dict,
                                     use_combo: bool = False,
                                     combo: tuple = None,
-                                    gt_thick: np.ndarray = None):
+                                    gt_thick: np.ndarray = None,
+                                    sigma=Σ, beta=β, c=c, c_theta=c_θ, R=R, K=K,
+                                    threshold_mask=threshold_mask, dark_ridges=dark_ridges,
+                                    min_centrality=min_centrality, f_threshold=f_threshold):
     """
     Reprend ton pipeline batch:
       - Hessians par modalité (+ inversé si use_combo)
@@ -867,10 +870,10 @@ def frangi_predict_mask_from_arrays(arrays: dict,
     hessian_cache = {}
     for k in valid_keys:
         arr = to_gray(arrays[k])
-        h_norm = compute_hessians_per_scale(arr, Σ)
+        h_norm = compute_hessians_per_scale(arr, sigma)
         hessian_cache[k] = [h_norm]
         if use_combo:
-            h_inv = compute_hessians_per_scale(255 - arr, Σ)
+            h_inv = compute_hessians_per_scale(255 - arr, sigma)
             hessian_cache[k].append(h_inv)
 
     # combos
@@ -892,7 +895,7 @@ def frangi_predict_mask_from_arrays(arrays: dict,
 
         # 2) Graph
         coords, _, S = build_frangi_similarity_graph(
-            fused_H, β, c, c_θ, R,
+            fused_H, beta, c, c_theta, R,
             candidate_mask=None,
             threshold_mask=threshold_mask,
             dark_ridges=dark_ridges
@@ -1025,7 +1028,8 @@ def process_image_noise(idx: int,
                         use_combo: bool,
                         weights: dict,
                         noise_filtered_like_range: bool = True,
-                        combo_strategy: str = "freeze_clean"):
+                        combo_strategy: str = "freeze_clean",
+                        excluded_ids: list = []):
     """
     Une tâche joblib = 1 image, boucle sur tous les niveaux.
     combo_strategy:
@@ -1075,6 +1079,26 @@ def process_image_noise(idx: int,
                 noise_filtered_like_range=noise_filtered_like_range
             )
 
+            # --- SAVE NOISY IMAGES ---
+            try:
+                import os
+                import numpy as np
+                import matplotlib.pyplot as plt
+                import imageio.v2 as iio
+                sv_root = "/content/drive/MyDrive/Datasets/FIND/Noisy"
+                sv_lvl = f"{lvl:.4f}".replace(".", "p")
+                sv_dir = os.path.join(sv_root, noise_exp_name, sv_lvl)
+                os.makedirs(sv_dir, exist_ok=True)
+                for m_nm, m_arr in noisy_arrays.items():
+                    if m_nm in ["intensity", "range"]:
+                         mn, mx = m_arr.min(), m_arr.max()
+                         if mx > mn: nrm = (m_arr - mn)/(mx - mn)
+                         else: nrm = np.zeros_like(m_arr)
+                         cm = plt.get_cmap("jet")
+                         col = (cm(nrm)[:,:,:3]*255).astype(np.uint8)
+                         iio.imwrite(os.path.join(sv_dir, f"im{idx+1:05d}_{m_nm}.png"), col)
+            except: pass
+            # -------------------------
             # ---- Frangi gen ----
             if use_combo:
                 if combo_strategy == "best_each":
@@ -1122,7 +1146,10 @@ def process_image_noise(idx: int,
 
         return rows
 
-    except Exception:
+    except Exception as e:
+        print(f'Error processing image {idx}: {e}')
+        import traceback
+        traceback.print_exc()
         return None
 
 def run_noise_benchmark(struct,
@@ -1132,7 +1159,10 @@ def run_noise_benchmark(struct,
                         use_combo: bool,
                         weights: dict,
                         combo_strategy: str = "freeze_clean",
-                        noise_filtered_like_range: bool = True):
+                        noise_filtered_like_range: bool = True,
+                        start_idx: int = 0,
+                        end_idx: int = 500,
+                        excluded_ids: list = []):
     indices = [i for i in range(start_idx, end_idx) if i not in excluded_ids]
 
     with tqdm_joblib(tqdm(total=len(indices), desc=f"Noise bench: {noise_exp_name}")):
@@ -1142,7 +1172,8 @@ def run_noise_benchmark(struct,
                 noise_exp_name, noise_levels,
                 use_combo, weights,
                 noise_filtered_like_range=noise_filtered_like_range,
-                combo_strategy=combo_strategy
+                combo_strategy=combo_strategy,
+                excluded_ids=excluded_ids
             )
             for idx in indices
         )
@@ -1190,24 +1221,230 @@ def plot_noise_curves(df: pd.DataFrame, noise_exp_name: str, x_label: str):
         plt.legend()
         plt.show()
 
+# --- FIX: Redefine function with missing f_threshold argument ---
+def frangi_predict_mask_from_arrays(arrays: dict,
+                                    weights: dict,
+                                    use_combo: bool = False,
+                                    combo: tuple = None,
+                                    gt_thick: np.ndarray = None):
+    base = arrays.get("intensity", next(iter(arrays.values())))
+    base = np.asarray(base)
+
+    valid_keys = [k for k in weights if (k in arrays and weights[k] > 0)]
+    if len(valid_keys) == 0:
+        raise ValueError("Aucune modalité valide: vérifie weights vs arrays.")
+
+    # --- Cache Hessians (normal + inversé) ---
+    hessian_cache = {}
+    for k in valid_keys:
+        arr = to_gray(arrays[k])
+        h_norm = compute_hessians_per_scale(arr, Σ)
+        hessian_cache[k] = [h_norm]
+        if use_combo:
+            h_inv = compute_hessians_per_scale(255 - arr, Σ)
+            hessian_cache[k].append(h_inv)
+
+    # combos
+    if use_combo:
+        combo_list = [combo] if combo is not None else list(itertools.product([0, 1], repeat=len(valid_keys)))
+    else:
+        combo_list = [tuple(0 for _ in valid_keys)]
+
+    best_tversky = -1.0
+    best_combo = combo_list[0]
+    best_mask = np.zeros_like(base, dtype=np.uint8)
+
+    for cmb in combo_list:
+        # 1) Fusion
+        current_mods = {}
+        for i, mod in enumerate(valid_keys):
+            current_mods[mod] = hessian_cache[mod][cmb[i]]
+        fused_H = fuse_hessians_per_scale(current_mods, weights)
+
+        # 2) Graph
+        coords, _, S = build_frangi_similarity_graph(
+            fused_H, β, c, c_θ, R,
+            candidate_mask=None,
+            threshold_mask=threshold_mask,
+            dark_ridges=dark_ridges
+        )
+        D = distances_from_similarity(S, mode="minus")
+        if K == 2:
+            D = triangle_connectivity_graph(coords, D)
+
+        # 3) LCC
+        D_cc, idx_nodes = largest_connected_component(D)
+
+        # 4) Skeleton extraction
+        sk_pred_mask = np.zeros_like(base, dtype=np.uint8)
+        if D_cc.shape[0] > 0:
+            labels = np.zeros(D_cc.shape[0], dtype=int)  # SKIP HDBSCAN
+            sub_coords = coords[idx_nodes]
+            all_edges = []
+
+            for lab in np.unique(labels):
+                if lab < 0:
+                    continue
+                cl = np.where(labels == lab)[0]
+                if cl.size < 3:
+                    continue
+
+                mst = mst_on_cluster(D_cc, cl)
+                global_indices = idx_nodes[cl]
+                S_cluster = S[global_indices, :][:, global_indices]
+
+                # FIX HERE: Added f_threshold=f_threshold
+                nodes_kept, skel_graph = extract_backbone_centrality(
+                    mst, f_threshold=f_threshold, S=S_cluster, take_similarity=True, min_centrality=min_centrality
+                )
+                segs = skeleton_from_mst_graph(
+                    skel_graph, sub_coords[cl], nodes_kept, S=S_cluster, take_similarity=True
+                )
+
+                if hasattr(segs, "shape") and segs.shape[0] > 0:
+                    all_edges.append(segs)
+
+            if all_edges:
+                fault_edges = np.vstack(all_edges)
+                for e in fault_edges:
+                    r0, c0, r1, c1, _ = e
+                    n = int(max(abs(r1 - r0), abs(c1 - c0)) + 1)
+                    rr = np.linspace(r0, r1, n)
+                    cc = np.linspace(c0, c1, n)
+                    rr = np.clip(rr.astype(int), 0, sk_pred_mask.shape[0] - 1)
+                    cc = np.clip(cc.astype(int), 0, sk_pred_mask.shape[1] - 1)
+                    sk_pred_mask[rr, cc] = 1
+
+        # Sélection combo (si demandé)
+        if use_combo and (combo is None) and (gt_thick is not None):
+            sk_pred_thick = thicken(sk_pred_mask, pixels=THICK_PIXELS)
+            tv = float(tversky_index(sk_pred_thick, gt_thick, alpha=TV_ALPHA, beta=TV_BETA))
+            if tv > best_tversky:
+                best_tversky = tv
+                best_combo = cmb
+                best_mask = sk_pred_mask
+        else:
+            # pas de sélection: on prend le mask courant
+            best_mask = sk_pred_mask
+            best_combo = cmb
+            break
+
+    return best_mask, best_combo
+
 # --- Reprend tes paramètres batch existants ---
-# start_idx, end_idx, n_jobs, USE_COMBO, excluded_ids doivent déjà exister dans ton notebook.
-# weights: reprends ta config actuelle
 USE_COMBO = False
 weights = {"intensity": 1/2, "range": 1/2, "filtered": 0, "fused": 0.0}
 
 # Niveaux de bruit (à ajuster)
-speckle_vars = [0.0, 0.005, 0.01, 0.02, 0.05, 0.10, 0.15, 0.3] # [0.0, 0.0025, 0.005, 0.01, 0.02, 0.04, 0.08]
-range_sigmas = [0.0, 0.005, 0.01, 0.02, 0.05, 0.10, 0.15, 0.3]
+speckle_vars = [0.0, 0.01, 0.05, 0.10, 0.3, 0.5]
+range_sigmas = [0.0, 0.01, 0.05, 0.10, 0.3, 0.5]
+
+# --- DEBUG: Verify the function works on one example BEFORE parallel batch ---
+print("DEBUG: Running test on a single image to catch errors...")
+try:
+    # Generate a noisy sample (index=seed)
+    noisy_dat_debug = make_noisy_arrays(dat["arrays"], seed, 0, 0.1, 0.0, True)
+    # Run the prediction function directly
+    mask_debug, _ = frangi_predict_mask_from_arrays(noisy_dat_debug, weights, USE_COMBO, None, None)
+    print("DEBUG: Test successful! Proceeding to batch...")
+except Exception as e:
+    import traceback
+    print("DEBUG: Test FAILED with error:")
+    traceback.print_exc()
+    # Stop execution if debug fails
+    raise e
+# --------------------------------------------------------------------------
 
 # Illustration sur ton seed (existant)
 show_noisy_modalities_seed(struct, seed_idx=seed,
-                           speckle_vars=(0.0, 0.01, 0.05, 0.15),
-                           range_sigmas=(0.0, 0.01, 0.05, 0.15),
+                           speckle_vars=(0.01, 0.10, 0.3, 0.5),
+                           range_sigmas=(0.01, 0.10, 0.3, 0.5),
                            noise_filtered_like_range=True)
 
-# Stratégie combo (si USE_COMBO=True)
-COMBO_STRATEGY = "freeze_clean"  # "best_each" si tu veux re-sélectionner à chaque niveau (plus lent)
+# ... (Rest of visualization code) ...
+print("--- Detailed Feature Visualization on Noisy Example ---")
+# Pick the max noise levels
+max_speckle = speckle_vars[-1]
+max_sigma = range_sigmas[-1]
+print(f"Generating noisy example with Speckle={max_speckle}, Sigma={max_sigma}")
+
+noisy_dat = make_noisy_arrays(dat["arrays"], seed, level_id=len(speckle_vars)-1,
+                              speckle_var=max_speckle, range_sigma=max_sigma, noise_filtered_like_range=True)
+
+mods_hess_vis = {}
+valid_keys_vis = [k for k in weights if k in noisy_dat and weights[k] > 0]
+for k in valid_keys_vis: mods_hess_vis[k] = compute_hessians_per_scale(to_gray(noisy_dat[k]), Σ)
+fused_H_vis = fuse_hessians_per_scale(mods_hess_vis, weights)
+
+coords_vis, _, S_vis = build_frangi_similarity_graph(fused_H_vis, β, c, c_θ, R, candidate_mask=None, threshold_mask=threshold_mask, dark_ridges=dark_ridges)
+D_vis = distances_from_similarity(S_vis, mode="minus")
+if K == 2: D_vis = triangle_connectivity_graph(coords_vis, D_vis)
+
+D_cc_vis, idx_nodes_vis = largest_connected_component(D_vis)
+sim_vis_map = np.zeros_like(base, dtype=np.float32)
+if S_vis.shape[0] > 0:
+    degs = np.array(S_vis.max(axis=1).toarray()).flatten()
+    sim_vis_map[coords_vis[:,0], coords_vis[:,1]] = degs
+
+centrality_vis_map = np.zeros_like(base, dtype=np.float32)
+sub_coords_vis = coords_vis[idx_nodes_vis]
+
+sk_pred_vis = np.zeros_like(base, dtype=np.uint8)
+if D_cc_vis.shape[0] > 0:
+    mst_vis = mst_on_cluster(D_cc_vis, np.arange(D_cc_vis.shape[0]))
+    from scipy.sparse.csgraph import breadth_first_order
+    N_cl = mst_vis.shape[0]
+    order, predecessors = breadth_first_order(mst_vis, i_start=0, directed=False, return_predecessors=True)
+    node_weights = np.ones(N_cl, dtype=np.float64)
+    global_indices = idx_nodes_vis
+    S_cluster = S_vis[global_indices, :][:, global_indices]
+    if S_cluster is not None:
+         node_weights = S_cluster.max(axis=1).toarray().flatten().astype(np.float64)
+    subtree_mass = node_weights.copy()
+    for i in order[::-1]:
+        if i != 0:
+            p = predecessors[i]
+            if p>=0 and p<N_cl: subtree_mass[p] += subtree_mass[i]
+    total_mass = subtree_mass[0]
+    cent = subtree_mass * (total_mass - subtree_mass)
+    if cent.max() > 0: cent /= cent.max()
+    centrality_vis_map[sub_coords_vis[:, 0], sub_coords_vis[:, 1]] = cent
+    nodes_kept, skel_graph = extract_backbone_centrality(mst_vis, f_threshold=f_threshold, S=S_cluster, take_similarity=True, min_centrality=min_centrality)
+    segs = skeleton_from_mst_graph(skel_graph, sub_coords_vis, nodes_kept, S=S_cluster, take_similarity=True)
+    if segs.shape[0] > 0:
+        for e in segs:
+            r0, c0, r1, c1, _ = e
+            rr, cc = np.linspace(r0, r1, int(max(abs(r1-r0), abs(c1-c0))+1)), np.linspace(c0, c1, int(max(abs(r1-r0), abs(c1-c0))+1))
+            rr, cc = np.clip(rr.astype(int), 0, sk_pred_vis.shape[0]-1), np.clip(cc.astype(int), 0, sk_pred_vis.shape[1]-1)
+            sk_pred_vis[rr, cc] = 1
+
+l2_stack = np.stack([Hd['e2n'] for Hd in fused_H_vis], axis=0)
+e1_stack = np.stack([Hd['e1n'] for Hd in fused_H_vis], axis=0)
+theta_stack = np.stack([Hd['theta'] for Hd in fused_H_vis], axis=0)
+best_idx = np.argmax(np.abs(l2_stack), axis=0)
+H, W = l2_stack.shape[1], l2_stack.shape[2]
+yy, xx = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')
+l2_vis = l2_stack[best_idx, yy, xx]
+e1_vis = e1_stack[best_idx, yy, xx]
+theta_vis = theta_stack[best_idx, yy, xx]
+ratio_vis = np.abs(e1_vis) / (np.abs(l2_vis) + 1e-12)
+ratio_vis = np.clip(ratio_vis, 0, 1)
+
+fig, axes = plt.subplots(2, 4, figsize=(20, 10))
+axes[0,0].imshow(to_gray(noisy_dat["intensity"]), cmap='gray'); axes[0,0].set_title(f"Noisy Intensity (Var={max_speckle})")
+axes[0,1].imshow(to_gray(noisy_dat["range"]), cmap='gray'); axes[0,1].set_title(f"Noisy Range (Sig={max_sigma})")
+axes[0,2].imshow(np.abs(l2_vis), cmap='magma'); axes[0,2].set_title("Fused |λ2|")
+axes[0,3].imshow(ratio_vis, cmap='viridis'); axes[0,3].set_title("Frangi Ratio (|λ1|/|λ2|)")
+axes[1,0].imshow(np.sin(theta_vis), cmap='twilight'); axes[1,0].set_title("Hessian Angle sin(θ)")
+axes[1,1].imshow(sim_vis_map, cmap='inferno'); axes[1,1].set_title("Frangi Similarity")
+axes[1,2].imshow(centrality_vis_map, cmap='inferno'); axes[1,2].set_title("Betweenness Centrality")
+axes[1,3].imshow(base, cmap='gray'); axes[1,3].imshow(sk_pred_vis, cmap='Reds', alpha=0.5); axes[1,3].set_title("Ours: Final Skeleton")
+for ax in axes.flatten(): ax.axis('off')
+plt.tight_layout()
+plt.show()
+print("-------------------------------------------------------")
+
+COMBO_STRATEGY = "best_each"
 
 # 1) Sweep Intensity speckle
 df_speckle = run_noise_benchmark(
@@ -1218,10 +1455,14 @@ df_speckle = run_noise_benchmark(
     use_combo=USE_COMBO,
     weights=weights,
     combo_strategy=COMBO_STRATEGY,
-    noise_filtered_like_range=True
+    noise_filtered_like_range=True,
+    start_idx=start_idx,
+    end_idx=end_idx,
+    excluded_ids=excluded_ids
 )
 display(df_speckle.head())
-plot_noise_curves(df_speckle, "speckle_intensity", x_label="Speckle variance (Intensity)")
+if not df_speckle.empty:
+    plot_noise_curves(df_speckle, "speckle_intensity", x_label="Speckle variance (Intensity)")
 
 # 2) Sweep Range gaussian
 df_range = run_noise_benchmark(
@@ -1232,21 +1473,34 @@ df_range = run_noise_benchmark(
     use_combo=USE_COMBO,
     weights=weights,
     combo_strategy=COMBO_STRATEGY,
-    noise_filtered_like_range=True
+    noise_filtered_like_range=True,
+    start_idx=start_idx,
+    end_idx=end_idx,
+    excluded_ids=excluded_ids
 )
 display(df_range.head())
-plot_noise_curves(df_range, "gauss_range", x_label="Gaussian sigma (Range)")
+if not df_range.empty:
+    plot_noise_curves(df_range, "gauss_range", x_label="Gaussian sigma (Range)")
 
-# Consolidation
-
-# 3) Sweep Both (Gaussian on Range + Speckle on Intensity simultaneously)
-df_both = run_noise_benchmark(    struct,    noise_exp_name="both",    noise_levels=range_sigmas,    n_jobs=n_jobs,    use_combo=USE_COMBO,    weights=weights,    combo_strategy=COMBO_STRATEGY,    noise_filtered_like_range=True
+# 3) Sweep Both
+df_both = run_noise_benchmark(    struct,
+    noise_exp_name="both",
+    noise_levels=range_sigmas,
+    n_jobs=n_jobs,
+    use_combo=USE_COMBO,
+    weights=weights,
+    combo_strategy=COMBO_STRATEGY,
+    noise_filtered_like_range=True,
+    start_idx=start_idx,
+    end_idx=end_idx,
+    excluded_ids=excluded_ids
 )
 display(df_both.head())
-plot_noise_curves(df_both, "both", x_label="Noise Level (Sigma/Var)")
+if not df_both.empty:
+    plot_noise_curves(df_both, "both", x_label="Noise Level (Sigma/Var)")
 
 df_noise = pd.concat([df_speckle, df_range, df_both], ignore_index=True)
 display(df_noise.tail())
 
-# Sauvegarde optionnelle
-df_noise.to_csv("/content/drive/MyDrive/Datasets/FIND/Results/noise_robustness_metrics.csv", index=False)
+if not df_noise.empty:
+    df_noise.to_csv("/content/drive/MyDrive/Datasets/FIND/Results/noise_robustness_metrics.csv", index=False)
