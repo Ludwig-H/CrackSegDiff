@@ -25,7 +25,7 @@ notebook_content = {
         "id": "B2F5YlDRR2Hv"
       },
       "source": [
-        "# CrackSegDiff: Simplified Training & Inference\n",
+        "# CrackSegDiff: Simplified Training & Inference (v3.0 - Fixed Benchmark)\n",
         "Automated setup, data preparation (First 500 Test / 2000 Train), training, and testing."
       ]
     },
