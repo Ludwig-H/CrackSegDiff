@@ -1,5 +1,7 @@
 # CrackSegDiff (Fork for EUSIPCO 2026)
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Ludwig-H/CrackSegDiff/blob/CrackSegdiff/CrackSegDiff_Colab.ipynb)
+
 This repository is a fork of the original [CrackSegDiff](https://github.com/sky-visionX/CrackSegDiff) repository, containing corrections and a Colab notebook optimized for A100 GPUs.
 
 This work supports the following paper:
