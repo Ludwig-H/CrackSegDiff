@@ -1,10 +1,27 @@
-# CrackSegDiff: Diffusion Probability Model-based Multi-modal Crack Segmentation
+# CrackSegDiff (Fork for EUSIPCO 2026)
+
+This repository is a fork of the original [CrackSegDiff](https://github.com/sky-visionX/CrackSegDiff) repository, containing corrections and a Colab notebook optimized for A100 GPUs.
+
+This work supports the following paper:
+
+```bibtex
+@misc{HauseuxEUSIPCO2026,
+  title={Multi-Modal, Training-Free Crack Extraction via Generalized Frangi Graph},
+  author={Hauseux, Louis and Antoine, Raphaël and Foucher, Philippe and Charbonnier, Pierre and Zerubia, Josiane},
+  note={submitted to EUSIPCO 2026},
+  year={2026}
+}
+```
+
+---
+
+# Original CrackSegDiff: Diffusion Probability Model-based Multi-modal Crack Segmentation
 
 ## Abstract
 
 Integrating grayscale and depth data in road inspection robots could enhance the accuracy, reliability, and comprehensiveness of road condition assessments, leading to improved maintenance strategies and safer infrastructure. However, these data sources are often compromised by significant background noise from the pavement. Recent advancements in Diffusion Probabilistic Models (DPM) have demonstrated remarkable success in image segmentation tasks, showcasing potent denoising capabilities, as evidenced in studies like SegDiff. Despite these advancements, current DPM-based segmentors do not fully capitalize on the potential of original image data. In this paper, we propose a novel DPM-based approach for crack segmentation, named CrackSegDiff, which uniquely fuses grayscale and range/depth images. This method enhances the reverse diffusion process by intensifying the interaction between local feature extraction via DPM and global feature extraction. Unlike traditional methods that utilize Transformers for global features, our approach employs Vm-unet to efficiently capture long-range information of the original data. The integration of features is further refined through two innovative modules: the Channel Fusion Module (CFM) and the Shallow Feature Compensation Module (SFCM). Our experimental evaluation on the three-class crack image segmentation tasks within the FIND dataset demonstrates that CrackSegDiff outperforms state-of-the-art methods, particularly excelling in the detection of shallow cracks.
 
-Paper: [arxiv](https://arxiv.org/abs/2410.08100)
+Original Paper: [arxiv](https://arxiv.org/abs/2410.08100)
 
 ## A Quick Overview 
 
@@ -18,7 +35,7 @@ Paper: [arxiv](https://arxiv.org/abs/2410.08100)
   <table>
     <thead>
       <tr>
-        <th rowspan="2">模型</th>
+        <th rowspan="2">Model</th>
         <th colspan="3">Raw intensity</th>
         <th colspan="3">Raw range</th>
         <th colspan="3">Fused raw image</th>
@@ -152,7 +169,7 @@ Paper: [arxiv](https://arxiv.org/abs/2410.08100)
     <p><em>Qualitative comparison of CrackSegDiff with state-of-the-art segmentation methods. From left to right, the metrics used are F1-Score, IoU, and BF-Score.</em></p>
 </div>
 
-## 1.Requirement
+## 1. Requirement
 
 ``pip install -r requirement.txt``
 
@@ -173,9 +190,10 @@ Paper: [arxiv](https://arxiv.org/abs/2410.08100)
 In default, the samples will be saved at `` ./results/`` 
 
 ## Thanks
-Code copied a lot from [MedSegDiff](https://github.com/MedicineToken/MedSegDiff), [guided-diffusion](https://github.com/openai/guided-diffusion), [SegDiff](https://github.com/tomeramit/SegDiff), [VM-UNet](https://github.com/JCruan519/VM-UNet)。
+Code derived from [MedSegDiff](https://github.com/MedicineToken/MedSegDiff), [guided-diffusion](https://github.com/openai/guided-diffusion), [SegDiff](https://github.com/tomeramit/SegDiff), [VM-UNet](https://github.com/JCruan519/VM-UNet).
+
 ## Cite
-Please cite
+Please cite the original work:
 ~~~
 @inproceedings{Jiang2024CrackSegDiffDP,
   title={CrackSegDiff: Diffusion Probability Model-based Multi-modal Crack Segmentation},
